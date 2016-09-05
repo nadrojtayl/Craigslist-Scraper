@@ -48,6 +48,7 @@ CL.getLinks('boston','roo').then(function(res){
 			return 0;
 		})
 		obj['common'] = JSON.stringify(common);
+		obj['sig'] = obj['common'].slice(obj['common'].length-20,obj['common'].length)
 	})
 
 	console.log(res);
