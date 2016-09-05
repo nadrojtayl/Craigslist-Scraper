@@ -4,83 +4,105 @@ var cheerio = require('cheerio');
 var _ = require("underscore");
 var Promise = require('bluebird');
 
+//promisifies  http request method to make code clearer
 var request = Promise.promisify(request)
 
-var apartmenttypekey = 'roo'
-//Craigslist apartment type
-//roo=rooms and shares
-//sbw = sublets and temps
-//apa = apartments/housing wanted
-var city = "sfbay"
-//roo
 
-var url = 'http://' + city + '.craigslist.org/search/' + apartmenttypekey;
+module.exports.getLinks = function(city,apartmenttypekey,cb){
+	return new Promise(function(resolve,reject){
+	//constructs search url based on city, apartment type
+		var url = 'http://' + city + '.craigslist.org/search/' + apartmenttypekey;
 
-var listinglinks = [];
-var requestbodies = [];
-var results = [];
 
-request(url).then(function(req){
-	var $ = cheerio.load(req.body);
-	//console.log($.html())
-	$('.hdrlnk').each(function(index,link){
- 		listinglinks.push('http://'+city + '.craigslist.org/' + link.attribs.href)
-  	})	
-  	//console.log(listinglinks);
-})
-.then(function(a){
+		var listinglinks = []; //array to hold links to listings returned from search
+		var requestbodies = [];	//array to hold request bodies
+		var results = [];	///array to hold final results (listings plus request bodies)
 
-	  listinglinks.forEach(function(link,index){
-	  	requestbodies[index] = request(link)
-	  })
+		request(url).then(function(req){
+			var $ = cheerio.load(req.body); //cheerio is a library that parses an html string to return a manipulable DOM
+			$('.hdrlnk').each(function(index,link){
+		 		listinglinks.push('http://'+city + '.craigslist.org/' + link.attribs.href)
+		  	})	
+		})
+		.then(function(){
 
-	Promise.all(requestbodies).then(function(){
-		requestbodies.forEach(function(promise,index){
-			promise.then(function(req){
-				$ = cheerio.load(req.body);
-				var bodytext = $('#postingbody').html();
-				//console.log(index);
-				results[index] = {link:listinglinks[index],text: bodytext}
+			  listinglinks.forEach(function(link,index){
+			  	requestbodies[index] = request(link)
+			  })
+
+			Promise.all(requestbodies).then(function(){
+				requestbodies.forEach(function(promise,index){
+					promise.then(function(req){
+						$ = cheerio.load(req.body);
+						var postbodytext = decodeURIComponent($('#postingbody').html());
+						var posttitle = $('#titletextonly').html();
+						var postprice = $('.price').html()
+						var map = $('#map')
+						var postlatitude = map.attr('data-latitude');
+						var postlongitude =map.attr('data-longitude');
+						results[index] = {link:listinglinks[index],title:posttitle,price:postprice,lat:postlatitude,lon:postlongitude,text: postbodytext}
+					})
+				})
+
+				return Promise.all(results).then(function(){
+					resolve(results);
+				})
+
+				
 			})
-		})
 
-		Promise.all(results).then(function(){
-			console.log(results);
 		})
-
-		
 	})
-
-})
-
+}
 
 
 
+module.exports.getLinksCallback = function(city,apartmenttypekey,cb){
+	//constructs search url based on city, apartment type
+		var url = 'http://' + city + '.craigslist.org/search/' + apartmenttypekey;
 
-//WORKING CALLBACK VERSION
 
-// request(url, function (error, response, body) {
-//   if (!error && response.statusCode == 200) {
-//    	var $ = }
-// cheerio.load(body) // Print the body of response.
+		var listinglinks = []; //array to hold links to listings returned from search
+		var requestbodies = [];	//array to hold request bodies
+		var results = [];	///array to hold final results (listings plus request bodies)
 
-//   $('.hdrlnk').each(function(index,link){
-//  	listinglinks.push(link.attribs.href)
-//   })
+		request(url).then(function(req){
+			var $ = cheerio.load(req.body); //cheerio is a library that parses an html string to return a manipulable DOM
+			$('.hdrlnk').each(function(index,link){
+		 		listinglinks.push('http://'+city + '.craigslist.org/' + link.attribs.href)
+		  	})	
+		})
+		.then(function(){
 
-//   listinglinks = listinglinks.map(function(link){
-//   	return 'http://seattle.craigslist.org' + link
-//   })
+			  listinglinks.forEach(function(link,index){
+			  	requestbodies[index] = request(link)
+			  })
 
-  // listinglinks.forEach(function(link,index){
-  // 	request(link,function(err,resp,body){
-  // 		$ = cheerio.load(body)
-  // 		requestbodies[index] = $('#postingbody').html();
+			Promise.all(requestbodies).then(function(){
+				requestbodies.forEach(function(promise,index){
+					promise.then(function(req){
+						$ = cheerio.load(req.body);
+						var postbodytext = decodeURIComponent($('#postingbody').html());
+						var posttitle = $('#titletextonly').html();
+						var postprice = $('.price').html()
+						var map = $('#map')
+						var postlatitude = map.attr('data-latitude');
+						var postlongitude =map.attr('data-longitude');
+						results[index] = {link:listinglinks[index],title:posttitle,price:postprice,lat:postlatitude,lon:postlongitude,text: postbodytext}
+					})
+				})
 
-  // 		if(index = 99){
-  // 			console.log('Listing',listinglinks[0],'Body',requestbodies[0])
-  // 		}
-  // 	})
-  // })
+				return Promise.all(results).then(function(){
+					cb(results);
+				})
 
-//   // })
+				
+			})
+
+		})
+}
+
+
+
+
+
